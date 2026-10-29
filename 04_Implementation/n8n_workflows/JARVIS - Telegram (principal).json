@@ -1,0 +1,442 @@
+{
+  "name": "Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [0, 112],
+      "id": "86b37a3a-006e-445c-8882-d4e09d323079",
+      "name": "Telegram Trigger",
+      "webhookId": "1a36c73d-5653-4bc5-951f-65706ace5e4e",
+      "credentials": {
+        "telegramApi": { "id": "5ptxnruKOEoxb0K9", "name": "JARVIS BOT" }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1312, 256],
+      "id": "3a114e86-24f2-457c-8463-102aca84f049",
+      "name": "Send a text message",
+      "webhookId": "c5979107-fa61-462a-be32-9d6cc176a4d2",
+      "credentials": {
+        "telegramApi": { "id": "5ptxnruKOEoxb0K9", "name": "JARVIS BOT" }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Mensaje del usuario:\n{{ $('Edit Fields').item.json.mensaje }}\n\nRecuerdos persistentes:\n{{ $('Edit Fields').item.json.recuerdos }}\n\nUtiliza los recuerdos cuando sean relevantes. No inventes información ni afirmes haber guardado algo si no se ha guardado realmente.",
+        "options": {
+          "systemMessage": "Eres el mayordomo personal del usuario.\n\nReglas de comportamiento, en orden de importancia:\n- Si el usuario solo te CUENTA algo (un dato personal, una opinion, algo que ha pasado), responde con un acuse breve y natural (1 frase). NO propongas acciones, NO ofrezcas ayuda no solicitada, NO hagas preguntas de seguimiento. Simplemente confirma que lo tienes en cuenta.\n- Si el usuario PIDE algo (ayuda, una decision, un plan de verdad), ahi si responde con mas desarrollo, y solo ahi puedes distinguir entre una version minima, normal y extendida si pide un plan — nunca por iniciativa propia, nunca para un mensaje suelto.\n- Habla en español, natural y breve.\n- No afirmes que has ejecutado acciones, consultado datos o guardado informacion si no lo has hecho realmente.\n- No inventes datos sobre el usuario, sus proyectos o sus preferencias.\n- Ya tienes memoria persistente, acceso a tu calendario de Google, y datos de tus proyectos — no niegues que existen, pero tampoco los menciones si no viene a cuento.\n- Los recuerdos que te paso son contexto de fondo, no el tema de la conversacion. Usalos solo si son relevantes a lo que se dice AHORA; nunca cambies de tema ni traigas un recuerdo antiguo sin que venga a cuento."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [896, 112],
+      "id": "fa33fdf8-5a51-4e17-ba22-5024d24387ac",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": { "model": "llama3.2:3b", "options": {} },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [904, 328],
+      "id": "fa150206-a32c-4cfa-b590-442d7e577b21",
+      "name": "Ollama Chat Model",
+      "credentials": { "ollamaApi": { "id": "GIwMwr1pgXlWMDxU", "name": "Ollama account" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "34ca3218-4d38-409e-99bf-48d09a5e49de",
+              "leftValue": "={{ $json.message.from.id }}",
+              "rightValue": 6644696958,
+              "operator": { "type": "number", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [224, 112],
+      "id": "b97bcb52-849c-43be-9697-eaa11d4b8135",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true, "value": "CSNUNBMTFAdbHQdZ", "mode": "list",
+          "cachedResultUrl": "/workflow/CSNUNBMTFAdbHQdZ", "cachedResultName": "JARVIS - Memoria Persistente"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ String($('Telegram Trigger').item.json.message.from.id) }}",
+            "mensaje": "={{ $('Telegram Trigger').item.json.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "mensaje", "displayName": "mensaje", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [448, 112],
+      "id": "600c4620-e13d-4a8d-bf60-b3dba0dc96bd",
+      "name": "Call 'Memoria Persistente'"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "303924e3-d8fb-4d3a-b957-a0837dca4aaa", "name": "mensaje", "value": "={{ $('Telegram Trigger').item.json.message.text }}", "type": "string" },
+            { "id": "82ba6abf-c221-49f0-bdad-b0755828cb80", "name": "recuerdos", "value": "={{ $json.recuerdos ?? 'Todavía no hay recuerdos guardados.' }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [672, 112],
+      "id": "8f7571d4-ed4b-4e4d-a222-790ee60bd6a4",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ruta_id, descripcion FROM mayordomo_rutas WHERE activa = true;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [1248, 0],
+      "id": "rout3r00-0001-4000-8000-000000000001",
+      "name": "Leer rutas activas",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const rutas = $input.all().map(i => i.json).filter(r => r.ruta_id);\nconst criteria = {};\nfor (const r of rutas) { criteria[r.ruta_id] = r.descripcion; }\nconst mensaje = $('Telegram Trigger').item.json.message.text;\nconst body = {\n  model: 'jev-latest',\n  state: 'Mensaje del usuario: ' + mensaje,\n  questions: {\n    ruta: {\n      type: 'choice',\n      instructions: 'Cual de estas rutas describe mejor el mensaje?',\n      criteria\n    },\n    necesita_revision_humana: { type: 'noul', instructions: 'La confianza es baja o el caso es ambiguo?' }\n  }\n};\nreturn [{ json: { jev_body: body } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1472, 0],
+      "id": "rout3r00-0002-4000-8000-000000000002",
+      "name": "Armar peticion Jev"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.typesafe.ai/v1/systemone",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.jev_body) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1696, 0],
+      "id": "rout3r00-0003-4000-8000-000000000003",
+      "name": "Router Jev"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const ruta = $json.answers?.ruta?.choice ?? 'memoria_general';\nreturn { json: { ruta_elegida: ruta } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 0],
+      "id": "rout3r00-0004-4000-8000-000000000004",
+      "name": "Parsear ruta elegida"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "rout3r00-0005-1", "leftValue": "={{ $json.ruta_elegida }}", "rightValue": "agendar", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2144, 0],
+      "id": "rout3r00-0005-4000-8000-000000000005",
+      "name": "Es ruta agendar"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "rout3r00-0006-1", "leftValue": "={{ $json.ruta_elegida }}", "rightValue": "recordatorio_sin_hora", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2368, 160],
+      "id": "rout3r00-0006-4000-8000-000000000006",
+      "name": "Es ruta recordatorio"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "rout3r00-0007-1", "leftValue": "={{ $json.ruta_elegida }}", "rightValue": "consulta_proyecto", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2592, 320],
+      "id": "rout3r00-0007-4000-8000-000000000007",
+      "name": "Es ruta consulta"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "JARVISRutaAgendar001", "mode": "list", "cachedResultUrl": "/workflow/JARVISRutaAgendar001", "cachedResultName": "JARVIS - Ruta Agendar" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ String($('Telegram Trigger').item.json.message.from.id) }}",
+            "chat_id": "={{ String($('Telegram Trigger').item.json.message.chat.id) }}",
+            "mensaje": "={{ $('Telegram Trigger').item.json.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "chat_id", "displayName": "chat_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "mensaje", "displayName": "mensaje", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [2368, -80],
+      "id": "rout3r00-0008-4000-8000-000000000008",
+      "name": "Llamar Ruta Agendar"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "JARVISRutaRecordatorio001", "mode": "list", "cachedResultUrl": "/workflow/JARVISRutaRecordatorio001", "cachedResultName": "JARVIS - Ruta Recordatorio Sin Hora" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ String($('Telegram Trigger').item.json.message.from.id) }}",
+            "chat_id": "={{ String($('Telegram Trigger').item.json.message.chat.id) }}",
+            "mensaje": "={{ $('Telegram Trigger').item.json.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "chat_id", "displayName": "chat_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "mensaje", "displayName": "mensaje", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [2592, 80],
+      "id": "rout3r00-0009-4000-8000-000000000009",
+      "name": "Llamar Ruta Recordatorio"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "JARVISRutaConsulta001", "mode": "list", "cachedResultUrl": "/workflow/JARVISRutaConsulta001", "cachedResultName": "JARVIS - Ruta Consulta Proyecto" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ String($('Telegram Trigger').item.json.message.from.id) }}",
+            "chat_id": "={{ String($('Telegram Trigger').item.json.message.chat.id) }}",
+            "mensaje": "={{ $('Telegram Trigger').item.json.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "chat_id", "displayName": "chat_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "mensaje", "displayName": "mensaje", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [2816, 240],
+      "id": "rout3r00-0010-4000-8000-000000000010",
+      "name": "Llamar Ruta Consulta"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "rout3r00-0012-1", "leftValue": "={{ $json.ruta_elegida }}", "rightValue": "actualizar_proyecto", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2816, 80],
+      "id": "rout3r00-0012-4000-8000-000000000012",
+      "name": "Es ruta actualizar"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "JARVISRutaActualizarProyecto001", "mode": "list", "cachedResultUrl": "/workflow/JARVISRutaActualizarProyecto001", "cachedResultName": "JARVIS - Ruta Actualizar Proyecto" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ String($('Telegram Trigger').item.json.message.from.id) }}",
+            "chat_id": "={{ String($('Telegram Trigger').item.json.message.chat.id) }}",
+            "mensaje": "={{ $('Telegram Trigger').item.json.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "chat_id", "displayName": "chat_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "mensaje", "displayName": "mensaje", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [3040, 80],
+      "id": "rout3r00-0013-4000-8000-000000000013",
+      "name": "Llamar Ruta Actualizar"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "JARVISRutaMemoriaGeneral001", "mode": "list", "cachedResultUrl": "/workflow/JARVISRutaMemoriaGeneral001", "cachedResultName": "JARVIS - Ruta Memoria General" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ String($('Telegram Trigger').item.json.message.from.id) }}",
+            "chat_id": "={{ String($('Telegram Trigger').item.json.message.chat.id) }}",
+            "mensaje": "={{ $('Telegram Trigger').item.json.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "chat_id", "displayName": "chat_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "mensaje", "displayName": "mensaje", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [2816, 400],
+      "id": "rout3r00-0011-4000-8000-000000000011",
+      "name": "Llamar Ruta Memoria General"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "If", "type": "main", "index": 0 }]] },
+    "Send a text message": { "main": [[]] },
+    "Ollama Chat Model": { "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]] },
+    "AI Agent": {
+      "main": [[
+        { "node": "Send a text message", "type": "main", "index": 0 },
+        { "node": "Llamar Ruta Memoria General", "type": "main", "index": 0 }
+      ]]
+    },
+    "If": { "main": [[{ "node": "Leer rutas activas", "type": "main", "index": 0 }]] },
+    "Call 'Memoria Persistente'": { "main": [[{ "node": "Edit Fields", "type": "main", "index": 0 }]] },
+    "Edit Fields": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] },
+    "Leer rutas activas": { "main": [[{ "node": "Armar peticion Jev", "type": "main", "index": 0 }]] },
+    "Armar peticion Jev": { "main": [[{ "node": "Router Jev", "type": "main", "index": 0 }]] },
+    "Router Jev": { "main": [[{ "node": "Parsear ruta elegida", "type": "main", "index": 0 }]] },
+    "Parsear ruta elegida": { "main": [[{ "node": "Es ruta agendar", "type": "main", "index": 0 }]] },
+    "Es ruta agendar": {
+      "main": [
+        [{ "node": "Llamar Ruta Agendar", "type": "main", "index": 0 }],
+        [{ "node": "Es ruta recordatorio", "type": "main", "index": 0 }]
+      ]
+    },
+    "Es ruta recordatorio": {
+      "main": [
+        [{ "node": "Llamar Ruta Recordatorio", "type": "main", "index": 0 }],
+        [{ "node": "Es ruta consulta", "type": "main", "index": 0 }]
+      ]
+    },
+    "Es ruta consulta": {
+      "main": [
+        [{ "node": "Llamar Ruta Consulta", "type": "main", "index": 0 }],
+        [{ "node": "Es ruta actualizar", "type": "main", "index": 0 }]
+      ]
+    },
+    "Es ruta actualizar": {
+      "main": [
+        [{ "node": "Llamar Ruta Actualizar", "type": "main", "index": 0 }],
+        [{ "node": "Call 'Memoria Persistente'", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "988db35d-be07-4cdb-9f16-1249fc13cccb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e"
+  },
+  "nodeGroups": [],
+  "id": "ppJ7aJlfc8quVinu",
+  "tags": []
+}

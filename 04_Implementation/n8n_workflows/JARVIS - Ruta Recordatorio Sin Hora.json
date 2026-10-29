@@ -1,0 +1,123 @@
+{
+  "name": "JARVIS - Ruta Recordatorio Sin Hora",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "usuario_id", "type": "string" },
+            { "name": "chat_id", "type": "string" },
+            { "name": "mensaje", "type": "string" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "rrec0rd1-0001-4000-8000-000000000001",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('When Executed by Another Workflow').first().json;\nconst mensaje = previo.mensaje;\n\nconst meses = { enero:'01', febrero:'02', marzo:'03', abril:'04', mayo:'05', junio:'06', julio:'07', agosto:'08', septiembre:'09', octubre:'10', noviembre:'11', diciembre:'12' };\n\nfunction resolverAnio(mes, dia, anioExplicito) {\n  if (anioExplicito) return anioExplicito;\n  const hoy = new Date();\n  let anio = hoy.getFullYear();\n  const candidata = new Date(`${anio}-${mes}-${dia}`);\n  if (candidata < hoy) anio += 1;\n  return String(anio);\n}\n\nconst patronMeses = 'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre';\nconst matchRango = mensaje.match(new RegExp('del\\\\s+(\\\\d{1,2})\\\\s+al\\\\s+(\\\\d{1,2})\\\\s+de\\\\s+(' + patronMeses + ')(?:\\\\s+de\\\\s+(\\\\d{4}))?', 'i'));\nconst matchUnica = mensaje.match(new RegExp('(\\\\d{1,2})\\\\s+de\\\\s+(' + patronMeses + ')(?:\\\\s+de\\\\s+(\\\\d{4}))?', 'i'));\n\nlet fecha_inicio = '', fecha_fin = '';\n\nif (matchRango) {\n  const dia1 = matchRango[1].padStart(2, '0');\n  const dia2 = matchRango[2].padStart(2, '0');\n  const mes = meses[matchRango[3].toLowerCase()];\n  const anio = resolverAnio(mes, dia1, matchRango[4]);\n  fecha_inicio = `${anio}-${mes}-${dia1}`;\n  fecha_fin = `${anio}-${mes}-${dia2}`;\n} else if (matchUnica) {\n  const dia = matchUnica[1].padStart(2, '0');\n  const mes = meses[matchUnica[2].toLowerCase()];\n  const anio = resolverAnio(mes, dia, matchUnica[3]);\n  fecha_inicio = fecha_fin = `${anio}-${mes}-${dia}`;\n}\n\nconst rango = fecha_inicio === fecha_fin ? fecha_inicio : (fecha_inicio + ' al ' + fecha_fin);\n\nlet titulo = mensaje;\nif (matchRango) titulo = titulo.replace(matchRango[0], '');\nelse if (matchUnica) titulo = titulo.replace(matchUnica[0], '');\ntitulo = titulo.replace(/\\b(apunta(lo)?|agendame|agenda|pon en el calendario que|pon en el calendario|crea un evento|a(n|ñ)ade|anota|recuerdame)\\b/gi, '');\ntitulo = titulo.replace(/^[\\s,:.;-]+|[\\s,:.;-]+$/g, '').trim();\ntitulo = titulo.replace(/^(para|de|el|la|que)\\s+/i, '').trim();\nif (!titulo) titulo = 'Recordatorio';\ntitulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);\n\nreturn [{ json: { usuario_id: previo.usuario_id, chat_id: previo.chat_id, categoria: 'recordatorio', contenido: rango + ': ' + titulo, fecha_inicio, fecha_fin, titulo, rango } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0],
+      "id": "rrec0rd1-0004-4000-8000-000000000004",
+      "name": "Parsear recordatorio"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": { "mode": "list", "value": "primary" },
+        "start": "={{ $json.fecha_inicio }}",
+        "end": "={{ DateTime.fromISO($json.fecha_fin).plus({days:1}).toISODate() }}",
+        "additionalFields": { "summary": "={{ $json.titulo }}" }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [672, -160],
+      "id": "rrec0rd1-0007-4000-8000-000000000007",
+      "name": "Crear evento todo el dia",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "C3gmPFBSJDSDdIT4", "mode": "list", "cachedResultUrl": "/workflow/C3gmPFBSJDSDdIT4", "cachedResultName": "JARVIS - Guardar Recuerdo" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ $('Parsear recordatorio').item.json.usuario_id }}",
+            "categoria": "={{ $('Parsear recordatorio').item.json.categoria }}",
+            "contenido": "={{ $('Parsear recordatorio').item.json.contenido }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "categoria", "displayName": "categoria", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "contenido", "displayName": "contenido", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [896, 0],
+      "id": "rrec0rd1-0005-4000-8000-000000000005",
+      "name": "Call 'JARVIS - Guardar Recuerdo'"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO mayordomo_eventos\n    (usuario_id, tipo, ocurrido_en, modulo_origen, contexto, requiere_aprobacion)\nVALUES ($1, 'recordatorio.creado', now(), 'ruta_recordatorio', $2, false);",
+        "options": {
+          "queryReplacement": "={{ [$('Parsear recordatorio').item.json.usuario_id, JSON.stringify({titulo: $('Parsear recordatorio').item.json.titulo, fecha_inicio: $('Parsear recordatorio').item.json.fecha_inicio, fecha_fin: $('Parsear recordatorio').item.json.fecha_fin})] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [672, 160],
+      "id": "rrec0rd1-0008-4000-8000-000000000008",
+      "name": "Guardar evento estructurado",
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Parsear recordatorio').item.json.chat_id }}",
+        "text": "=Apuntado: \"{{ $('Parsear recordatorio').item.json.titulo }}\" el {{ $('Parsear recordatorio').item.json.rango }} (todo el dia, sin hora concreta).",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1120, 0],
+      "id": "rrec0rd1-0006-4000-8000-000000000006",
+      "name": "Confirmar por Telegram",
+      "credentials": { "telegramApi": { "id": "5ptxnruKOEoxb0K9", "name": "JARVIS BOT" } }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": { "main": [[{ "node": "Parsear recordatorio", "type": "main", "index": 0 }]] },
+    "Parsear recordatorio": {
+      "main": [[
+        { "node": "Crear evento todo el dia", "type": "main", "index": 0 },
+        { "node": "Guardar evento estructurado", "type": "main", "index": 0 },
+        { "node": "Call 'JARVIS - Guardar Recuerdo'", "type": "main", "index": 0 }
+      ]]
+    },
+    "Crear evento todo el dia": { "main": [[]] },
+    "Guardar evento estructurado": { "main": [[]] },
+    "Call 'JARVIS - Guardar Recuerdo'": { "main": [[{ "node": "Confirmar por Telegram", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "versionId": "00000000-0000-4000-8000-000000000014",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e" },
+  "nodeGroups": [],
+  "id": "JARVISRutaRecordatorio001",
+  "tags": []
+}

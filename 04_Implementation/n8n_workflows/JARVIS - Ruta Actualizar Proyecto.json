@@ -1,0 +1,224 @@
+{
+  "name": "JARVIS - Ruta Actualizar Proyecto",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "usuario_id", "type": "string" },
+            { "name": "chat_id", "type": "string" },
+            { "name": "mensaje", "type": "string" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "ractu4l1-0001-4000-8000-000000000001",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('When Executed by Another Workflow').first().json;\nconst m = previo.mensaje.toLowerCase();\nconst alias = {\n  'Levstamp': /levstamp|aptis|british council/,\n  'Tu Home Office': /tu home office|home office|afiliados amazon|amazon afiliados/,\n  'Wedding Planner Pro': /wedding planner|nuptial|boda|novios/,\n  'JARVIS': /\\bjarvis\\b/\n};\nlet nombre_proyecto = '';\nfor (const [nombre, patron] of Object.entries(alias)) {\n  if (patron.test(m)) { nombre_proyecto = nombre; break; }\n}\nreturn [{ json: { usuario_id: previo.usuario_id, chat_id: previo.chat_id, mensaje: previo.mensaje, nombre_proyecto } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0],
+      "id": "ractu4l1-0002-4000-8000-000000000002",
+      "name": "Detectar por palabra clave"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, raiz_id, version, atributos FROM mayordomo_entidades WHERE tipo = 'proyecto' AND nombre = $1 AND estado = 'activo' ORDER BY version DESC LIMIT 1;",
+        "options": { "queryReplacement": "={{ [$json.nombre_proyecto] }}" }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [448, 0],
+      "id": "ractu4l1-0003-4000-8000-000000000003",
+      "name": "Leer proyecto actual",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "ractu4l1-0004-1", "leftValue": "={{ $json.id }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [672, 0],
+      "id": "ractu4l1-0004-4000-8000-000000000004",
+      "name": "Encontrado el proyecto"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('Detectar por palabra clave').first().json;\nconst fila = $json;\nconst atributos = fila.atributos || {};\nconst pendientes = Array.isArray(atributos.pendientes_nuevos) ? atributos.pendientes_nuevos : [];\nconst listaPendientes = pendientes.length ? pendientes.map((p, i) => `${i}. ${p.nota || p}`).join('\\n') : '(no hay pendientes guardados todavia)';\n\nconst prompt = `Mensaje del usuario sobre el proyecto \"${previo.nombre_proyecto}\":\\n\"${previo.mensaje}\"\\n\\nLista actual de pendientes guardados de este proyecto, numerada:\\n${listaPendientes}\\n\\nDecide UNA de estas tres acciones:\\n- \"completar\": si el mensaje dice que algo YA SE HIZO o se completo. Esto aplica tanto si corresponde a un pendiente de la lista como si es un avance que nunca estuvo apuntado como pendiente. Si corresponde EXACTAMENTE a un pendiente de la lista, indica su NUMERO en indice_completado. Si no corresponde a ninguno de la lista pero igualmente es algo ya hecho, deja indice_completado en null (se registrara igual como completado, no hace falta que estuviera en la lista).\\n- \"agregar\": si el mensaje propone algo nuevo que falta hacer (todavia no hecho), no relacionado con completar nada.\\n- \"preguntar\": solo si el mensaje es realmente ambiguo y no se puede saber si es algo hecho o algo pendiente nuevo.\\n\\nResponde SOLO un objeto JSON, sin markdown, con esta forma exacta:\\n{\"accion\":\"completar|agregar|preguntar\",\"indice_completado\":<numero o null>,\"nota\":\"<texto breve para guardar, si accion es completar o agregar>\",\"pregunta\":\"<pregunta breve si accion es preguntar>\"}`;\n\nreturn [{ json: { usuario_id: previo.usuario_id, chat_id: previo.chat_id, mensaje: previo.mensaje, nombre_proyecto: previo.nombre_proyecto, id_viejo: fila.id, raiz_id: fila.raiz_id, version_vieja: fila.version, atributos_viejo: atributos, prompt } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, -80],
+      "id": "ractu4l1-0010-4000-8000-00000000000a",
+      "name": "Armar prompt Claude"
+    },
+    {
+      "parameters": { "operation": "toText", "sourceProperty": "prompt", "options": { "fileName": "jarvis_prompt_actualizar.txt" } },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1120, -80],
+      "id": "ractu4l1-0011-4000-8000-00000000000b",
+      "name": "Convertir prompt"
+    },
+    {
+      "parameters": { "operation": "write", "fileName": "/tmp/jarvis_prompt_actualizar.txt", "options": {} },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1344, -80],
+      "id": "ractu4l1-0012-4000-8000-00000000000c",
+      "name": "Escribir prompt"
+    },
+    {
+      "parameters": { "command": "claude -p --output-format json < /tmp/jarvis_prompt_actualizar.txt" },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1568, -80],
+      "id": "ractu4l1-0013-4000-8000-00000000000d",
+      "name": "Llamar a Claude"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('Armar prompt Claude').first().json;\nconst raw = $json.stdout ?? '';\nlet texto = raw;\ntry {\n  const parsed = JSON.parse(raw);\n  texto = parsed.result ?? parsed.text ?? parsed.response ?? parsed.output ?? raw;\n} catch (e) {}\nlet decision = { accion: 'agregar', nota: previo.mensaje || 'No he entendido bien el cambio' };\ntry {\n  const match = String(texto).match(/\\{[\\s\\S]*\\}/);\n  if (match) decision = JSON.parse(match[0]);\n} catch (e) {}\nreturn [{ json: { ...previo, decision } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1792, -80],
+      "id": "ractu4l1-0014-4000-8000-00000000000e",
+      "name": "Parsear decision"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $json;\nconst decision = previo.decision;\nconst atributosViejo = previo.atributos_viejo || {};\nlet pendientes = Array.isArray(atributosViejo.pendientes_nuevos) ? [...atributosViejo.pendientes_nuevos] : [];\nlet actualizaciones = Array.isArray(atributosViejo.actualizaciones) ? [...atributosViejo.actualizaciones] : [];\nconst hoy = new Date().toISOString().slice(0,10);\nlet mensajeFinal = '';\n\nif (decision.accion === 'completar') {\n  let notaCompletada = decision.nota;\n  const tieneIndice = decision.indice_completado !== null && decision.indice_completado !== undefined && pendientes[decision.indice_completado];\n  if (tieneIndice) {\n    const quitado = pendientes[decision.indice_completado];\n    pendientes = pendientes.filter((_, i) => i !== decision.indice_completado);\n    notaCompletada = decision.nota || quitado.nota || quitado;\n  }\n  if (!notaCompletada) notaCompletada = previo.mensaje;\n  actualizaciones.push({ fecha: hoy, nota: notaCompletada });\n  mensajeFinal = `Marcado como hecho en \"${previo.nombre_proyecto}\": ${notaCompletada}`;\n} else if (decision.accion === 'agregar') {\n  pendientes.push({ fecha: hoy, nota: decision.nota });\n  mensajeFinal = `Anotado como pendiente en \"${previo.nombre_proyecto}\": ${decision.nota}`;\n} else {\n  mensajeFinal = decision.pregunta || 'No he entendido bien el cambio, ¿puedes aclararlo?';\n}\n\nconst atributosNuevo = { ...atributosViejo, pendientes_nuevos: pendientes, actualizaciones };\n\nreturn [{ json: { ...previo, accion: decision.accion, atributos_nuevo: JSON.stringify(atributosNuevo), mensaje_final: mensajeFinal } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2016, -80],
+      "id": "ractu4l1-0015-4000-8000-00000000000f",
+      "name": "Aplicar decision"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "ractu4l1-0016-1", "leftValue": "={{ $json.accion }}", "rightValue": "preguntar", "operator": { "type": "string", "operation": "notEquals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2240, -80],
+      "id": "ractu4l1-0016-4000-8000-000000000010",
+      "name": "Hay que guardar cambio"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE mayordomo_entidades SET estado = 'archivado' WHERE id = $1;",
+        "options": { "queryReplacement": "={{ [$json.id_viejo] }}" }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [2464, -160],
+      "id": "ractu4l1-0017-4000-8000-000000000011",
+      "name": "Archivar version vieja",
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO mayordomo_entidades (usuario_id, tipo, nombre, estado, origen, version, version_anterior_id, raiz_id, atributos)\nVALUES ($1, 'proyecto', $2, 'activo', 'claude', $3, $4, $5, $6::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [$('Aplicar decision').item.json.usuario_id, $('Aplicar decision').item.json.nombre_proyecto, Number($('Aplicar decision').item.json.version_vieja) + 1, $('Aplicar decision').item.json.id_viejo, $('Aplicar decision').item.json.raiz_id, $('Aplicar decision').item.json.atributos_nuevo] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [2688, -160],
+      "id": "ractu4l1-0018-4000-8000-000000000012",
+      "name": "Insertar nueva version",
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Aplicar decision').item.json.chat_id }}",
+        "text": "={{ $('Aplicar decision').item.json.mensaje_final }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2912, 0],
+      "id": "ractu4l1-0008-4000-8000-000000000008",
+      "name": "Enviar respuesta",
+      "credentials": { "telegramApi": { "id": "5ptxnruKOEoxb0K9", "name": "JARVIS BOT" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Detectar por palabra clave').item.json.chat_id }}",
+        "text": "No he identificado de qué proyecto hablas (Levstamp, Tu Home Office, Wedding Planner Pro o JARVIS) — dime el nombre explícitamente.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [896, 160],
+      "id": "ractu4l1-0009-4000-8000-000000000009",
+      "name": "No identificado",
+      "credentials": { "telegramApi": { "id": "5ptxnruKOEoxb0K9", "name": "JARVIS BOT" } }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": { "main": [[{ "node": "Detectar por palabra clave", "type": "main", "index": 0 }]] },
+    "Detectar por palabra clave": { "main": [[{ "node": "Leer proyecto actual", "type": "main", "index": 0 }]] },
+    "Leer proyecto actual": { "main": [[{ "node": "Encontrado el proyecto", "type": "main", "index": 0 }]] },
+    "Encontrado el proyecto": {
+      "main": [
+        [{ "node": "Armar prompt Claude", "type": "main", "index": 0 }],
+        [{ "node": "No identificado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Armar prompt Claude": { "main": [[{ "node": "Convertir prompt", "type": "main", "index": 0 }]] },
+    "Convertir prompt": { "main": [[{ "node": "Escribir prompt", "type": "main", "index": 0 }]] },
+    "Escribir prompt": { "main": [[{ "node": "Llamar a Claude", "type": "main", "index": 0 }]] },
+    "Llamar a Claude": { "main": [[{ "node": "Parsear decision", "type": "main", "index": 0 }]] },
+    "Parsear decision": { "main": [[{ "node": "Aplicar decision", "type": "main", "index": 0 }]] },
+    "Aplicar decision": { "main": [[{ "node": "Hay que guardar cambio", "type": "main", "index": 0 }]] },
+    "Hay que guardar cambio": {
+      "main": [
+        [{ "node": "Archivar version vieja", "type": "main", "index": 0 }],
+        [{ "node": "Enviar respuesta", "type": "main", "index": 0 }]
+      ]
+    },
+    "Archivar version vieja": { "main": [[{ "node": "Insertar nueva version", "type": "main", "index": 0 }]] },
+    "Insertar nueva version": { "main": [[{ "node": "Enviar respuesta", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "errorWorkflow": "JARVISNotificarError001" },
+  "versionId": "00000000-0000-4000-8000-000000000017",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e" },
+  "nodeGroups": [],
+  "id": "JARVISRutaActualizarProyecto001",
+  "tags": []
+}

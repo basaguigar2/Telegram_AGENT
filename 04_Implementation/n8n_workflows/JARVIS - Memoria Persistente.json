@@ -1,0 +1,91 @@
+{
+  "name": "JARVIS - Memoria Persistente",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "usuario_id" },
+            { "name": "mensaje" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "984b2318-43b1-45f3-a208-c00e5438b1cb",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT categoria, contenido, creado_en\nFROM mayordomo_memoria\nWHERE usuario_id = $1\nORDER BY creado_en DESC\nLIMIT 8;",
+        "options": {
+          "queryReplacement": "={{ [$json.usuario_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [224, 0],
+      "id": "71508c2e-4396-4d54-9a08-94741c4f81cf",
+      "name": "Execute a SQL query1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef29b0a2-657e-4378-81fc-598aacfcfb52",
+              "name": "usuario_id",
+              "value": "={{ $('When Executed by Another Workflow').first().json.usuario_id }}",
+              "type": "string"
+            },
+            {
+              "id": "3be3d14f-4438-49d2-819d-c34050e7cf20",
+              "name": "mensaje",
+              "value": "={{ $('When Executed by Another Workflow').first().json.mensaje }}",
+              "type": "string"
+            },
+            {
+              "id": "632236ff-7ce6-484e-a726-b5c553702220",
+              "name": "recuerdos",
+              "value": "={{ $input.all().filter(item => item.json.categoria && item.json.contenido).map(item => '[' + item.json.categoria + '] ' + item.json.contenido).join('\\n') || 'Todavía no hay recuerdos guardados.' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [448, 0],
+      "id": "cc59434f-642d-4dbe-91ef-463229aa892e",
+      "name": "EditarCampos",
+      "executeOnce": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [[{ "node": "Execute a SQL query1", "type": "main", "index": 0 }]]
+    },
+    "Execute a SQL query1": {
+      "main": [[{ "node": "EditarCampos", "type": "main", "index": 0 }]]
+    },
+    "EditarCampos": { "main": [[]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "versionId": "0f3485e7-9c86-4cba-b547-03b993de8616",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e"
+  },
+  "nodeGroups": [],
+  "id": "CSNUNBMTFAdbHQdZ",
+  "tags": []
+}

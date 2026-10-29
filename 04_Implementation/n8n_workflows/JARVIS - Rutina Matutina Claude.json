@@ -1,0 +1,387 @@
+{
+  "name": "JARVIS - Rutina Matutina Claude",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "30 6 * * *" }] }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "rmat1na0-0001-4000-8000-000000000001",
+      "name": "Cada dia a las 6:30"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "rmat1na0-0002-1", "name": "usuario_id", "value": "6644696958", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [224, 0],
+      "id": "rmat1na0-0002-4000-8000-000000000002",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT categoria, contenido, creado_en FROM mayordomo_memoria WHERE usuario_id = $1 AND creado_en >= now() - interval '24 hours' ORDER BY creado_en DESC;",
+        "options": { "queryReplacement": "={{ [$json.usuario_id] }}" }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [448, -240],
+      "id": "rmat1na0-0003-4000-8000-000000000003",
+      "name": "Recuerdos 24h",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT tipo, contexto, ocurrido_en, requiere_aprobacion FROM mayordomo_eventos WHERE usuario_id = $1 AND ocurrido_en >= now() - interval '24 hours' ORDER BY ocurrido_en DESC;",
+        "options": { "queryReplacement": "={{ [$json.usuario_id] }}" }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [448, -160],
+      "id": "rmat1na0-0004-4000-8000-000000000004",
+      "name": "Eventos 24h",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "command": "node /data/jarvis/04_Implementation/scripts/estado_videos_levstamp.mjs"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [448, -80],
+      "id": "rmat1na0-0013-4000-8000-00000000000d",
+      "name": "Estado videos Levstamp"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT nombre, atributos FROM mayordomo_entidades WHERE tipo = 'proyecto' AND estado = 'activo';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [448, 0],
+      "id": "rmat1na0-0014-4000-8000-00000000000e",
+      "name": "Proyectos activos",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT contenido FROM mayordomo_memoria WHERE usuario_id = $1 AND categoria = 'estado_dia' AND creado_en::date = current_date ORDER BY creado_en DESC LIMIT 1;",
+        "options": { "queryReplacement": "={{ [$json.usuario_id] }}" }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [448, 80],
+      "id": "rmat1na0-0015-4000-8000-00000000000f",
+      "name": "Dia libre hoy",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT tipo, contexto FROM mayordomo_eventos\nWHERE usuario_id = $1\n  AND tipo IN ('calendar.creado','recordatorio.creado')\n  AND (\n    (contexto->>'fecha') IS NOT NULL AND (contexto->>'fecha')::date IN (current_date, current_date + 1)\n    OR (\n      (contexto->>'fecha_inicio') IS NOT NULL AND (\n        current_date BETWEEN (contexto->>'fecha_inicio')::date AND (contexto->>'fecha_fin')::date\n        OR current_date + 1 BETWEEN (contexto->>'fecha_inicio')::date AND (contexto->>'fecha_fin')::date\n      )\n    )\n  );",
+        "options": { "queryReplacement": "={{ [$json.usuario_id] }}" }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [448, 160],
+      "id": "rmat1na0-0016-4000-8000-000000000010",
+      "name": "Recordatorios hoy y manana",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT count(*)::int as disponibles FROM mayordomo_preguntas_personales WHERE preguntada = false;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [448, 320],
+      "id": "rmat1na0-0019-4000-8000-000000000013",
+      "name": "Contar preguntas disponibles",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT pregunta FROM mayordomo_preguntas_personales WHERE preguntada = true ORDER BY fecha_preguntada DESC LIMIT 30;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [672, 400],
+      "id": "rmat1na0-0020-4000-8000-000000000014",
+      "name": "Preguntas ya hechas",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "rmat1na0-0021-1", "leftValue": "={{ $json.disponibles }}", "rightValue": 3, "operator": { "type": "number", "operation": "lt" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [896, 320],
+      "id": "rmat1na0-0021-4000-8000-000000000015",
+      "name": "Hace falta reponer"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const disponibles = $('Contar preguntas disponibles').first().json.disponibles;\nconst yaHechas = $('Preguntas ya hechas').all().map(i => i.json.pregunta);\nconst faltan = 3 - disponibles;\nconst listaYaHechas = yaHechas.length ? yaHechas.map(p => `- ${p}`).join('\\n') : '(ninguna todavia)';\nconst prompt = `Genera exactamente ${faltan} preguntas personales nuevas para conocer mejor a Basilio (gustos, vida, habitos, relaciones, no preguntas de trabajo ni de proyectos). Que no se parezcan a estas que ya se le han preguntado:\\n${listaYaHechas}\\n\\nResponde SOLO un array JSON de strings, nada mas, sin markdown. Ejemplo de formato: [\"pregunta 1\", \"pregunta 2\"]`;\nreturn [{ json: { prompt } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 320],
+      "id": "rmat1na0-0022-4000-8000-000000000016",
+      "name": "Armar prompt preguntas"
+    },
+    {
+      "parameters": { "operation": "toText", "sourceProperty": "prompt", "options": { "fileName": "jarvis_prompt_preguntas.txt" } },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1344, 320],
+      "id": "rmat1na0-0023-4000-8000-000000000017",
+      "name": "Convertir prompt preguntas"
+    },
+    {
+      "parameters": { "operation": "write", "fileName": "/tmp/jarvis_prompt_preguntas.txt", "options": {} },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1568, 320],
+      "id": "rmat1na0-0024-4000-8000-000000000018",
+      "name": "Escribir prompt preguntas"
+    },
+    {
+      "parameters": { "command": "claude -p --output-format json < /tmp/jarvis_prompt_preguntas.txt" },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1792, 320],
+      "id": "rmat1na0-0025-4000-8000-000000000019",
+      "name": "Llamar a Claude preguntas"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $json.stdout ?? '';\nlet texto = raw;\ntry {\n  const parsed = JSON.parse(raw);\n  texto = parsed.result ?? parsed.text ?? parsed.response ?? parsed.output ?? raw;\n} catch (e) {}\nlet preguntas = [];\ntry {\n  const match = String(texto).match(/\\[[\\s\\S]*\\]/);\n  preguntas = match ? JSON.parse(match[0]) : [];\n} catch (e) { preguntas = []; }\nreturn preguntas.filter(p => typeof p === 'string' && p.trim()).map(p => ({ json: { pregunta: p.trim() } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2016, 320],
+      "id": "rmat1na0-0026-4000-8000-00000000001a",
+      "name": "Parsear preguntas nuevas"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO mayordomo_preguntas_personales (pregunta) VALUES ($1);",
+        "options": { "queryReplacement": "={{ [$json.pregunta] }}" }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [2240, 320],
+      "id": "rmat1na0-0027-4000-8000-00000000001b",
+      "name": "Guardar preguntas nuevas",
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, pregunta FROM mayordomo_preguntas_personales WHERE preguntada = false ORDER BY random() LIMIT 3;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [2464, 240],
+      "id": "rmat1na0-0017-4000-8000-000000000011",
+      "name": "Elegir preguntas personales",
+      "alwaysOutputData": true,
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE mayordomo_preguntas_personales SET preguntada = true, fecha_preguntada = now() WHERE id = ANY($1::uuid[]);",
+        "options": {
+          "queryReplacement": "={{ [$input.all().map(i => i.json.id)] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [672, 320],
+      "id": "rmat1na0-0018-4000-8000-000000000012",
+      "name": "Marcar preguntas usadas",
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": { "mode": "append", "numberInputs": 7 },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [896, 0],
+      "id": "rmat1na0-0005-4000-8000-000000000005",
+      "name": "Juntar"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const recuerdos = $('Recuerdos 24h').all().map(i => i.json).filter(r => r.categoria);\nconst eventos = $('Eventos 24h').all().map(i => i.json).filter(e => e.tipo);\nconst estadoVideos = ($('Estado videos Levstamp').first()?.json.stdout) || 'No se pudo comprobar el estado de los videos.';\nconst proyectos = $('Proyectos activos').all().map(i => i.json).filter(p => p.nombre);\nconst diaLibre = $('Dia libre hoy').all().map(i => i.json).filter(d => d.contenido);\nconst recordatorios = $('Recordatorios hoy y manana').all().map(i => i.json).filter(r => r.tipo);\nconst preguntas = $('Elegir preguntas personales').all().map(i => i.json).filter(p => p.pregunta);\n\nif (diaLibre.length) {\n  const prompt = `Hoy el usuario marco como dia libre: \"${diaLibre[0].contenido}\". Escribe una frase corta y natural en espanol confirmando que hoy no se le propone nada, que descanse. Nada mas, sin markdown, sin preguntas.`;\n  return [{ json: { prompt } }];\n}\n\nlet datos = '';\nif (recuerdos.length) {\n  datos += 'Recuerdos guardados en las ultimas 24h:\\n' + recuerdos.map(r => `- [${r.categoria}] ${r.contenido}`).join('\\n') + '\\n\\n';\n}\nif (eventos.length) {\n  datos += 'Eventos registrados en las ultimas 24h:\\n' + eventos.map(e => `- [${e.tipo}] ${JSON.stringify(e.contexto)}`).join('\\n') + '\\n\\n';\n}\nif (!recuerdos.length && !eventos.length) { datos += 'Sin actividad registrada en las ultimas 24 horas.\\n\\n'; }\n\nif (proyectos.length) {\n  datos += 'Estado real de los proyectos activos (bloqueadores y pendientes_nuevos):\\n';\n  datos += proyectos.map(p => `- ${p.nombre}: ${JSON.stringify(p.atributos)}`).join('\\n');\n  datos += '\\n\\n';\n}\n\ndatos += `Estado real de los videos de Levstamp, comprobado contra disco esta misma mañana (esto es PARTE del proyecto Levstamp, no algo aparte):\\n${estadoVideos}\\n\\n`;\n\nif (recordatorios.length) {\n  datos += 'Recordatorios/eventos para HOY o MAÑANA (fechas reales):\\n';\n  datos += recordatorios.map(r => `- [${r.tipo}] ${JSON.stringify(r.contexto)}`).join('\\n');\n  datos += '\\n\\n';\n} else {\n  datos += 'No hay recordatorios ni eventos para hoy ni para mañana.\\n\\n';\n}\n\nconst preguntasTexto = preguntas.length\n  ? preguntas.map(p => `- ${p.pregunta}`).join('\\n')\n  : '(no hay preguntas nuevas disponibles hoy)';\n\nconst prompt = `Eres un asistente de redaccion. No tienes herramientas, no puedes ejecutar nada, solo responder texto.\n\nAqui tienes los datos reales de Basilio para el briefing de hoy (no los inventes ni los cuestiones):\n\n${datos}\n\nEscribe el briefing con esta estructura exacta, en español, sin markdown ni simbolos de formato:\n\n1. Si hay recordatorios o eventos para hoy o mañana, listalos primero, claramente, con fecha. Si no hay ninguno, dilo en una frase corta.\n2. Si hay \"Recuerdos guardados en las ultimas 24h\", Basilio las escribe sueltas y desordenadas a lo largo del dia -- tu trabajo aqui es limpiarlas: agrupa las que hablen de lo mismo, quita repeticiones, descarta ruido sin contenido, y reescribelas como ideas claras y breves (no copies el texto crudo tal cual). Si alguna nota claramente pertenece a un proyecto de la lista de abajo, no la repitas aqui, mencionala en el punto de ese proyecto. Si no hay recuerdos nuevos, omite este punto sin decir nada.\n3. Por cada proyecto activo, un resumen breve y concreto de su situacion: bloqueadores reales y pendientes nuevos, nombrando las tareas tal cual estan guardadas, no genérico. Para Levstamp, incluye ADEMAS (no en vez de) el estado de los videos: cuantos pendientes y cuales priorizarias.\n4. Una propuesta de que hacer hoy en 3 niveles -- minima (poco tiempo/energia), normal, y extendida (dia con mas energia) -- basada en todo lo anterior (proyectos + videos + recordatorios). Se concreto.\n5. Termina con estas 3 preguntas personales, tal cual, sin modificarlas ni inventar otras:\n${preguntasTexto}\n\nResponde solo el texto final con esa estructura, nada mas.`;\n\nreturn [{ json: { prompt } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 0],
+      "id": "rmat1na0-0006-4000-8000-000000000006",
+      "name": "Armar prompt"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "prompt",
+        "options": { "fileName": "jarvis_prompt_claude.txt" }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1344, 0],
+      "id": "rmat1na0-0007-4000-8000-000000000007",
+      "name": "Convertir prompt a archivo"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/tmp/jarvis_prompt_claude.txt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1568, 0],
+      "id": "rmat1na0-0008-4000-8000-000000000008",
+      "name": "Escribir prompt a disco"
+    },
+    {
+      "parameters": {
+        "command": "claude -p --output-format json < /tmp/jarvis_prompt_claude.txt"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1792, 0],
+      "id": "rmat1na0-0009-4000-8000-000000000009",
+      "name": "Llamar a Claude"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $json.stdout ?? '';\nlet texto = raw;\ntry {\n  const parsed = JSON.parse(raw);\n  texto = parsed.result ?? parsed.text ?? parsed.response ?? parsed.output ?? raw;\n} catch (e) { /* si no es JSON, se queda el texto crudo */ }\nreturn [{ json: { texto: String(texto).trim() } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2016, 0],
+      "id": "rmat1na0-0010-4000-8000-00000000000a",
+      "name": "Extraer texto"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "texto",
+        "options": { "fileName": "BriefingDiario_borrador.md" }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [2240, 0],
+      "id": "rmat1na0-0011-4000-8000-00000000000b",
+      "name": "Convertir texto a archivo"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/data/jarvis/03_Documentation/BriefingDiario_borrador.md",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [2464, 0],
+      "id": "rmat1na0-0012-4000-8000-00000000000c",
+      "name": "Guardar borrador del briefing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cada dia a las 6:30": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Config": {
+      "main": [[
+        { "node": "Recuerdos 24h", "type": "main", "index": 0 },
+        { "node": "Eventos 24h", "type": "main", "index": 0 },
+        { "node": "Estado videos Levstamp", "type": "main", "index": 0 },
+        { "node": "Proyectos activos", "type": "main", "index": 0 },
+        { "node": "Dia libre hoy", "type": "main", "index": 0 },
+        { "node": "Recordatorios hoy y manana", "type": "main", "index": 0 },
+        { "node": "Contar preguntas disponibles", "type": "main", "index": 0 }
+      ]]
+    },
+    "Contar preguntas disponibles": { "main": [[{ "node": "Hace falta reponer", "type": "main", "index": 0 }]] },
+    "Hace falta reponer": {
+      "main": [
+        [{ "node": "Preguntas ya hechas", "type": "main", "index": 0 }],
+        [{ "node": "Elegir preguntas personales", "type": "main", "index": 0 }]
+      ]
+    },
+    "Preguntas ya hechas": { "main": [[{ "node": "Armar prompt preguntas", "type": "main", "index": 0 }]] },
+    "Armar prompt preguntas": { "main": [[{ "node": "Convertir prompt preguntas", "type": "main", "index": 0 }]] },
+    "Convertir prompt preguntas": { "main": [[{ "node": "Escribir prompt preguntas", "type": "main", "index": 0 }]] },
+    "Escribir prompt preguntas": { "main": [[{ "node": "Llamar a Claude preguntas", "type": "main", "index": 0 }]] },
+    "Llamar a Claude preguntas": { "main": [[{ "node": "Parsear preguntas nuevas", "type": "main", "index": 0 }]] },
+    "Parsear preguntas nuevas": { "main": [[{ "node": "Guardar preguntas nuevas", "type": "main", "index": 0 }]] },
+    "Guardar preguntas nuevas": { "main": [[{ "node": "Elegir preguntas personales", "type": "main", "index": 0 }]] },
+    "Recuerdos 24h": { "main": [[{ "node": "Juntar", "type": "main", "index": 0 }]] },
+    "Eventos 24h": { "main": [[{ "node": "Juntar", "type": "main", "index": 1 }]] },
+    "Estado videos Levstamp": { "main": [[{ "node": "Juntar", "type": "main", "index": 2 }]] },
+    "Proyectos activos": { "main": [[{ "node": "Juntar", "type": "main", "index": 3 }]] },
+    "Dia libre hoy": { "main": [[{ "node": "Juntar", "type": "main", "index": 4 }]] },
+    "Recordatorios hoy y manana": { "main": [[{ "node": "Juntar", "type": "main", "index": 5 }]] },
+    "Elegir preguntas personales": {
+      "main": [[
+        { "node": "Juntar", "type": "main", "index": 6 },
+        { "node": "Marcar preguntas usadas", "type": "main", "index": 0 }
+      ]]
+    },
+    "Marcar preguntas usadas": { "main": [[]] },
+    "Juntar": { "main": [[{ "node": "Armar prompt", "type": "main", "index": 0 }]] },
+    "Armar prompt": { "main": [[{ "node": "Convertir prompt a archivo", "type": "main", "index": 0 }]] },
+    "Convertir prompt a archivo": { "main": [[{ "node": "Escribir prompt a disco", "type": "main", "index": 0 }]] },
+    "Escribir prompt a disco": { "main": [[{ "node": "Llamar a Claude", "type": "main", "index": 0 }]] },
+    "Llamar a Claude": { "main": [[{ "node": "Extraer texto", "type": "main", "index": 0 }]] },
+    "Extraer texto": { "main": [[{ "node": "Convertir texto a archivo", "type": "main", "index": 0 }]] },
+    "Convertir texto a archivo": { "main": [[{ "node": "Guardar borrador del briefing", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "errorWorkflow": "JARVISNotificarError001" },
+  "versionId": "00000000-0000-4000-8000-000000000021",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e" },
+  "nodeGroups": [],
+  "id": "JARVISRutinaMatutinaClaude001",
+  "tags": []
+}

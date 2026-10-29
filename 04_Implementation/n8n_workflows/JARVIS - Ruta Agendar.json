@@ -1,0 +1,116 @@
+{
+  "name": "JARVIS - Ruta Agendar",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "usuario_id", "type": "string" },
+            { "name": "chat_id", "type": "string" },
+            { "name": "mensaje", "type": "string" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "rag3nda1-0001-4000-8000-000000000001",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('When Executed by Another Workflow').first().json;\nconst mensaje = previo.mensaje;\n\nconst meses = { enero:'01', febrero:'02', marzo:'03', abril:'04', mayo:'05', junio:'06', julio:'07', agosto:'08', septiembre:'09', octubre:'10', noviembre:'11', diciembre:'12' };\n\nfunction resolverAnio(mes, dia, anioExplicito) {\n  if (anioExplicito) return anioExplicito;\n  const hoy = new Date();\n  let anio = hoy.getFullYear();\n  const candidata = new Date(`${anio}-${mes}-${dia}`);\n  if (candidata < hoy) anio += 1;\n  return String(anio);\n}\n\nconst matchFecha = mensaje.match(/(\\d{1,2})\\s+de\\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\\s+de\\s+(\\d{4}))?/i);\nlet matchHora = mensaje.match(/a las\\s+(\\d{1,2})(?::(\\d{2}))?/i);\nif (!matchHora) { matchHora = mensaje.match(/\\b(\\d{1,2}):(\\d{2})\\b/); }\n\nlet fecha = '', hora = '';\n\nif (matchFecha) {\n  const dia = matchFecha[1].padStart(2, '0');\n  const mes = meses[matchFecha[2].toLowerCase()];\n  const anio = resolverAnio(mes, dia, matchFecha[3]);\n  fecha = `${anio}-${mes}-${dia}`;\n}\n\nif (matchHora) {\n  const h = matchHora[1].padStart(2, '0');\n  const m = (matchHora[2] || '00').padStart(2, '0');\n  hora = `${h}:${m}`;\n}\n\nlet titulo = mensaje;\nif (matchFecha) titulo = titulo.replace(matchFecha[0], '');\nif (matchHora) titulo = titulo.replace(matchHora[0], '');\ntitulo = titulo.replace(/\\b(apunta(lo)?|agendame|agenda|pon en el calendario que|pon en el calendario|crea un evento|a(n|ñ)ade|anota)\\b/gi, '');\ntitulo = titulo.replace(/^[\\s,:.;-]+|[\\s,:.;-]+$/g, '').trim();\ntitulo = titulo.replace(/^(para|de|el|la)\\s+/i, '').trim();\nif (!titulo) titulo = 'Evento';\ntitulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);\n\nreturn [{ json: { usuario_id: previo.usuario_id, chat_id: previo.chat_id, fecha, hora, titulo } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0],
+      "id": "rag3nda1-0004-4000-8000-000000000004",
+      "name": "Parsear evento"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": { "mode": "list", "value": "primary" },
+        "timeMin": "={{ DateTime.fromISO($json.fecha).startOf('day').toISO() }}",
+        "timeMax": "={{ DateTime.fromISO($json.fecha).endOf('day').toISO() }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [672, 0],
+      "id": "rag3nda1-0008-4000-8000-000000000008",
+      "name": "Comprobar solapes",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('Parsear evento').first().json;\nconst eventos = $input.all().map(i => i.json).filter(e => e.start);\nconst nuevoInicio = new Date(`${previo.fecha}T${previo.hora}:00`);\nconst nuevoFin = new Date(nuevoInicio.getTime() + 60*60*1000);\n\nlet conflicto = null;\nfor (const ev of eventos) {\n  const evInicio = new Date(ev.start.dateTime || ev.start.date);\n  const evFin = new Date(ev.end.dateTime || ev.end.date);\n  if (nuevoInicio < evFin && nuevoFin > evInicio) { conflicto = ev.summary || '(sin titulo)'; break; }\n}\n\nreturn [{ json: { ...previo, hay_conflicto: !!conflicto, titulo_conflicto: conflicto || '' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 0],
+      "id": "rag3nda1-0009-4000-8000-000000000009",
+      "name": "Detectar conflicto"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": { "mode": "list", "value": "primary" },
+        "start": "={{ $('Parsear evento').item.json.fecha }}T{{ $('Parsear evento').item.json.hora }}:00",
+        "end": "={{ DateTime.fromISO($('Parsear evento').item.json.fecha + 'T' + $('Parsear evento').item.json.hora + ':00').plus({hours:1}).toISO() }}",
+        "additionalFields": { "summary": "={{ $('Parsear evento').item.json.titulo }}" }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [1120, 0],
+      "id": "rag3nda1-0005-4000-8000-000000000005",
+      "name": "Crear evento en Calendar"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO mayordomo_eventos\n    (usuario_id, tipo, ocurrido_en, modulo_origen, contexto, requiere_aprobacion)\nVALUES ($1, 'calendar.creado', now(), 'ruta_agendar', $2, false);",
+        "options": {
+          "queryReplacement": "={{ [$('Parsear evento').item.json.usuario_id, JSON.stringify({titulo: $('Parsear evento').item.json.titulo, fecha: $('Parsear evento').item.json.fecha, hora: $('Parsear evento').item.json.hora})] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [896, 0],
+      "id": "rag3nda1-0006-4000-8000-000000000006",
+      "name": "Guardar evento creado",
+      "credentials": { "postgres": { "id": "bPudOtymTMcJQME0", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Parsear evento').item.json.chat_id }}",
+        "text": "=Hecho, agendado \"{{ $('Parsear evento').item.json.titulo }}\" el {{ $('Parsear evento').item.json.fecha }} a las {{ $('Parsear evento').item.json.hora }}.{{ $('Detectar conflicto').item.json.hay_conflicto ? ' Ojo: ya tenías \"' + $('Detectar conflicto').item.json.titulo_conflicto + '\" a esa hora, lo he creado igual.' : '' }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1120, 0],
+      "id": "rag3nda1-0007-4000-8000-000000000007",
+      "name": "Confirmar por Telegram",
+      "credentials": { "telegramApi": { "id": "5ptxnruKOEoxb0K9", "name": "JARVIS BOT" } }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": { "main": [[{ "node": "Parsear evento", "type": "main", "index": 0 }]] },
+    "Parsear evento": { "main": [[{ "node": "Comprobar solapes", "type": "main", "index": 0 }]] },
+    "Comprobar solapes": { "main": [[{ "node": "Detectar conflicto", "type": "main", "index": 0 }]] },
+    "Detectar conflicto": { "main": [[{ "node": "Crear evento en Calendar", "type": "main", "index": 0 }]] },
+    "Crear evento en Calendar": { "main": [[{ "node": "Guardar evento creado", "type": "main", "index": 0 }]] },
+    "Guardar evento creado": { "main": [[{ "node": "Confirmar por Telegram", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "versionId": "00000000-0000-4000-8000-000000000010",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e" },
+  "nodeGroups": [],
+  "id": "JARVISRutaAgendar001",
+  "tags": []
+}

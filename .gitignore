@@ -1,0 +1,10 @@
+# credenciales y artefactos locales, nunca al historial de git
+**/config.json
+**/*.db
+**/*.log
+**/*.lock
+**/__pycache__/
+**/*.env
+
+# panel HTML generado, no es codigo
+04_Implementation/dashboard/panel.html

@@ -1,0 +1,154 @@
+{
+  "name": "JARVIS - Ruta Memoria General",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "usuario_id", "type": "string" },
+            { "name": "chat_id", "type": "string" },
+            { "name": "mensaje", "type": "string" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "rm3m0ria-0001-4000-8000-000000000001",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('When Executed by Another Workflow').first().json;\nconst m = previo.mensaje.toLowerCase();\n\nlet categoria = '', encontrado = false;\n\nconst proyectos = /levstamp|aptis|british council|tu home office|home office|afiliados amazon|amazon afiliados|wedding planner|nuptial|\\bboda\\b|\\bnovios\\b|\\bjarvis\\b/;\nif (proyectos.test(m)) { categoria = 'proyecto'; encontrado = true; }\n\nif (!encontrado && /dia libre|de descanso|poco puedo|nada que hacer|sin disponibilidad/.test(m)) {\n  categoria = 'estado_dia'; encontrado = true;\n}\nif (!encontrado && /\\b(ya lo he hecho|ya lo hice|terminado|listo,? ya esta|hecho ya)\\b/.test(m)) {\n  categoria = 'completado'; encontrado = true;\n}\nif (!encontrado && /\\b(novia|novio|esposa|esposo|pareja|mi hijo|mi hija|mi familia|vivo en|trabajo en|estudio en)\\b/.test(m)) {\n  categoria = 'personal'; encontrado = true;\n}\n\nreturn [{ json: { usuario_id: previo.usuario_id, mensaje: previo.mensaje, categoria, contenido: previo.mensaje, guardar: true, encontrado_por_palabra_clave: encontrado } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0],
+      "id": "rm3m0ria-0007-4000-8000-000000000007",
+      "name": "Detectar por palabra clave"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "rm3m0ria-0008-1", "leftValue": "={{ $json.encontrado_por_palabra_clave }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [448, 0],
+      "id": "rm3m0ria-0008-4000-8000-000000000008",
+      "name": "Coincide por palabra clave"
+    },
+    {
+      "parameters": { "model": "llama3.2:3b", "options": { "temperature": 0 } },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [448, 260],
+      "id": "rm3m0ria-0002-4000-8000-000000000002",
+      "name": "Ollama Model",
+      "credentials": { "ollamaApi": { "id": "GIwMwr1pgXlWMDxU", "name": "Ollama account" } }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.mensaje }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Eres un clasificador de recuerdos, no un asistente conversacional. Este mensaje YA fue descartado como cita, recordatorio, consulta de proyecto, dia libre, completado, personal o proyecto conocido, asi que solo puede ser preferencia, objetivo, tarea, decision, o nada util.\n\nDevuelve exclusivamente JSON valido, sin Markdown ni explicaciones.\n\n{\"guardar\":true,\"categoria\":\"<preferencia|objetivo|tarea|decision>\",\"contenido\":\"<resumen breve>\"}\n\nSi no expresa nada util para recordar:\n{\"guardar\":false,\"categoria\":\"general\",\"contenido\":\"\"}\n\nNunca expliques, nunca des consejos, nunca respondas al mensaje."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [672, 260],
+      "id": "rm3m0ria-0003-4000-8000-000000000003",
+      "name": "Clasificador"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const previo = $('Detectar por palabra clave').first().json;\nconst raw = $json.text ?? $json.response ?? $json.output ?? '';\nconst match = String(raw).match(/\\{[\\s\\S]*\\}/);\n\n// Si Llama no devuelve JSON (se pone a conversar, etc.), no se pierde el mensaje:\n// se guarda tal cual en 'general' en vez de descartarlo en silencio.\nif (!match) {\n  return [{ json: { usuario_id: previo.usuario_id, guardar: true, categoria: 'general', contenido: previo.mensaje } }];\n}\n\ntry {\n  const parsed = JSON.parse(match[0]);\n  const categoriaOriginal = String(parsed.categoria ?? '').toLowerCase();\n  let categoria = 'general';\n  if (categoriaOriginal.includes('preferencia')) categoria = 'preferencia';\n  else if (categoriaOriginal.includes('objetivo')) categoria = 'objetivo';\n  else if (categoriaOriginal.includes('tarea')) categoria = 'tarea';\n  else if (categoriaOriginal.includes('decision') || categoriaOriginal.includes('decisión')) categoria = 'decision';\n\n  const guardar = parsed.guardar === true || String(parsed.guardar).toLowerCase() === 'true';\n  return [{ json: { usuario_id: previo.usuario_id, guardar, categoria, contenido: guardar ? String(parsed.contenido ?? previo.mensaje).trim() : '' } }];\n} catch (error) {\n  return [{ json: { usuario_id: previo.usuario_id, guardar: true, categoria: 'general', contenido: previo.mensaje } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 260],
+      "id": "rm3m0ria-0004-4000-8000-000000000004",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "rm3m0ria-0005-1", "leftValue": "={{ $json.guardar }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1120, 130],
+      "id": "rm3m0ria-0005-4000-8000-000000000005",
+      "name": "If (guardar)"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "C3gmPFBSJDSDdIT4", "mode": "list", "cachedResultUrl": "/workflow/C3gmPFBSJDSDdIT4", "cachedResultName": "JARVIS - Guardar Recuerdo" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "usuario_id": "={{ $json.usuario_id }}",
+            "categoria": "={{ $json.categoria }}",
+            "contenido": "={{ $json.contenido }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "usuario_id", "displayName": "usuario_id", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "categoria", "displayName": "categoria", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false },
+            { "id": "contenido", "displayName": "contenido", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [1344, 130],
+      "id": "rm3m0ria-0006-4000-8000-000000000006",
+      "name": "Call 'JARVIS - Guardar Recuerdo'"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": { "main": [[{ "node": "Detectar por palabra clave", "type": "main", "index": 0 }]] },
+    "Detectar por palabra clave": { "main": [[{ "node": "Coincide por palabra clave", "type": "main", "index": 0 }]] },
+    "Coincide por palabra clave": {
+      "main": [
+        [{ "node": "If (guardar)", "type": "main", "index": 0 }],
+        [{ "node": "Clasificador", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ollama Model": { "ai_languageModel": [[{ "node": "Clasificador", "type": "ai_languageModel", "index": 0 }]] },
+    "Clasificador": { "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]] },
+    "Code in JavaScript": { "main": [[{ "node": "If (guardar)", "type": "main", "index": 0 }]] },
+    "If (guardar)": { "main": [[{ "node": "Call 'JARVIS - Guardar Recuerdo'", "type": "main", "index": 0 }], []] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "versionId": "00000000-0000-4000-8000-000000000015",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e" },
+  "nodeGroups": [],
+  "id": "JARVISRutaMemoriaGeneral001",
+  "tags": []
+}

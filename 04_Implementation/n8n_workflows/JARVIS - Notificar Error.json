@@ -1,0 +1,49 @@
+{
+  "name": "JARVIS - Notificar Error",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "rerr0r00-0001-4000-8000-000000000001",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const nombre = $json.workflow?.name ?? 'workflow desconocido';\nconst mensajeError = $json.execution?.error?.message ?? $json.execution?.lastNodeExecuted ?? $json.error?.message ?? 'error sin detalle';\nconst nodo = $json.execution?.error?.node?.name ?? '';\nconst texto = `Fallo en \"${nombre}\"${nodo ? ' (nodo: ' + nodo + ')' : ''}: ${mensajeError}`;\nreturn [{ json: { texto } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0],
+      "id": "rerr0r00-0002-4000-8000-000000000002",
+      "name": "Armar mensaje"
+    },
+    {
+      "parameters": {
+        "chatId": "6644696958",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [448, 0],
+      "id": "rerr0r00-0003-4000-8000-000000000003",
+      "name": "Avisar por Telegram",
+      "credentials": { "telegramApi": { "id": "5ptxnruKOEoxb0K9", "name": "JARVIS BOT" } }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": { "main": [[{ "node": "Armar mensaje", "type": "main", "index": 0 }]] },
+    "Armar mensaje": { "main": [[{ "node": "Avisar por Telegram", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "00000000-0000-4000-8000-000000000030",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "89dfc0209746a2bb6d948e9e5d06057e9957a92ea966d9672d63a5a5ef92e78e" },
+  "nodeGroups": [],
+  "id": "JARVISNotificarError001",
+  "tags": []
+}
