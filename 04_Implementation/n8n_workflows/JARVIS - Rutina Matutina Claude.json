@@ -56,20 +56,97 @@
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const baseGraphUrl = 'https://graph.microsoft.com/v1.0/me/drive/root:';\nconst basePath = '/Documentos/BasBusiness/aptis-prep-app/projects';\n\nasync function graphGet(path, query) {\n  return await this.helpers.httpRequestWithAuthentication.call(this, 'oAuth2Api', {\n    method: 'GET',\n    url: baseGraphUrl + path + (query ? ('?' + query) : ''),\n    json: true,\n  });\n}\n\nlet resultado = '';\ntry {\n  const listado = await graphGet.call(this, basePath + ':/children', '$select=name,folder&$top=200');\n  const carpetas = (listado.value || []).filter(i => i.folder).map(i => i.name);\n\n  let listos = [];\n  let pendientes = [];\n\n  for (const carpeta of carpetas) {\n    const carpetaEnc = encodeURIComponent(carpeta);\n    let manifest;\n    try {\n      manifest = await graphGet.call(this, basePath + '/' + carpetaEnc + '/manifest.json:/content');\n    } catch (e) {\n      continue;\n    }\n\n    const faltantes = [];\n    for (const asset of manifest.assets_required || []) {\n      const assetPathEnc = asset.path.split('/').map(encodeURIComponent).join('/');\n      try {\n        await graphGet.call(this, basePath + '/' + carpetaEnc + '/' + assetPathEnc, '$select=id');\n      } catch (e) {\n        faltantes.push(asset.path);\n      }\n    }\n\n    if (faltantes.length === 0) {\n      listos.push({ carpeta, title: manifest.title });\n    } else {\n      pendientes.push({ carpeta, title: manifest.title, faltantes });\n    }\n  }\n\n  resultado = `Total: ${listos.length + pendientes.length} videos. Listos: ${listos.length}. Pendientes de assets: ${pendientes.length}.\\n\\n`;\n  resultado += pendientes.map(p => `${p.carpeta} | ${p.title} | falta: ${p.faltantes.join(', ')}`).join('\\n');\n} catch (e) {\n  resultado = `No se pudo comprobar el estado de los videos via OneDrive: ${e.message}`;\n}\n\nreturn [{ json: { stdout: resultado } }];"
+        "url": "https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/BasBusiness/aptis-prep-app/projects:/children?$select=name,folder&$top=200",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [448, -80],
       "id": "rmat1na0-0013-4000-8000-00000000000d",
-      "name": "Estado videos Levstamp",
+      "name": "Listar carpetas Levstamp",
       "credentials": {
         "oAuth2Api": {
           "id": "placeholder-onedrive",
           "name": "OneDrive Graph API"
         }
       }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $input.first().json;\nconst carpetas = (data.value || []).filter(i => i.folder).map(i => i.name);\nconst base = 'https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/BasBusiness/aptis-prep-app/projects';\nif (!carpetas.length) return [{ json: { __sinCarpetas: true } }];\nreturn carpetas.map(carpeta => ({\n  json: {\n    carpeta,\n    url: `${base}/${encodeURIComponent(carpeta)}/manifest.json:/content`\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, -80],
+      "id": "rmat1na0-0013-4000-8000-00000000001a",
+      "name": "Preparar manifest URLs"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [896, -80],
+      "id": "rmat1na0-0013-4000-8000-00000000001b",
+      "name": "Leer manifest",
+      "continueOnFail": true,
+      "credentials": {
+        "oAuth2Api": {
+          "id": "placeholder-onedrive",
+          "name": "OneDrive Graph API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Preparar manifest URLs').all();\nif (prev.length === 1 && prev[0].json.__sinCarpetas) {\n  return [{ json: { __sinChecks: true, manifests: [] } }];\n}\nconst items = $input.all();\nconst base = 'https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/BasBusiness/aptis-prep-app/projects';\n\nconst manifests = [];\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const carpeta = prev[i]?.json?.carpeta;\n  if (!carpeta) continue;\n  if (!item.json || item.json.error) continue;\n  manifests.push({ carpeta, manifest: item.json });\n}\n\nconst checks = [];\nfor (const { carpeta, manifest } of manifests) {\n  for (const asset of (manifest.assets_required || [])) {\n    const assetPathEnc = asset.path.split('/').map(encodeURIComponent).join('/');\n    checks.push({\n      json: {\n        carpeta,\n        title: manifest.title,\n        assetPath: asset.path,\n        url: `${base}/${encodeURIComponent(carpeta)}/${assetPathEnc}?$select=id`\n      }\n    });\n  }\n}\n\nif (checks.length === 0) {\n  return [{ json: { __sinChecks: true, manifests: manifests.map(m => ({ carpeta: m.carpeta, title: m.manifest.title })) } }];\n}\nreturn checks;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, -80],
+      "id": "rmat1na0-0013-4000-8000-00000000001c",
+      "name": "Preparar asset checks"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1344, -80],
+      "id": "rmat1na0-0013-4000-8000-00000000001d",
+      "name": "Comprobar asset",
+      "continueOnFail": true,
+      "credentials": {
+        "oAuth2Api": {
+          "id": "placeholder-onedrive",
+          "name": "OneDrive Graph API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const checkInputs = $('Preparar asset checks').all();\n\nif (checkInputs.length === 1 && checkInputs[0].json.__sinChecks) {\n  const manifests = checkInputs[0].json.manifests || [];\n  const resultado = `Total: ${manifests.length} videos. Listos: ${manifests.length}. Pendientes de assets: 0.\\n\\n`;\n  return [{ json: { stdout: resultado } }];\n}\n\nconst checkResults = $input.all();\nconst porCarpeta = {};\nfor (let i = 0; i < checkInputs.length; i++) {\n  const { carpeta, title, assetPath } = checkInputs[i].json;\n  const resultado = checkResults[i];\n  const existe = !(resultado && resultado.json && resultado.json.error);\n  if (!porCarpeta[carpeta]) porCarpeta[carpeta] = { title, faltantes: [] };\n  if (!existe) porCarpeta[carpeta].faltantes.push(assetPath);\n}\n\nconst carpetas = Object.keys(porCarpeta);\nconst listos = carpetas.filter(c => porCarpeta[c].faltantes.length === 0);\nconst pendientes = carpetas.filter(c => porCarpeta[c].faltantes.length > 0);\n\nlet resultado = `Total: ${carpetas.length} videos. Listos: ${listos.length}. Pendientes de assets: ${pendientes.length}.\\n\\n`;\nresultado += pendientes.map(c => `${c} | ${porCarpeta[c].title} | falta: ${porCarpeta[c].faltantes.join(', ')}`).join('\\n');\n\nreturn [{ json: { stdout: resultado } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1568, -80],
+      "id": "rmat1na0-0013-4000-8000-00000000001e",
+      "name": "Estado videos Levstamp"
     },
     {
       "parameters": {
@@ -342,7 +419,7 @@
       "main": [[
         { "node": "Recuerdos 24h", "type": "main", "index": 0 },
         { "node": "Eventos 24h", "type": "main", "index": 0 },
-        { "node": "Estado videos Levstamp", "type": "main", "index": 0 },
+        { "node": "Listar carpetas Levstamp", "type": "main", "index": 0 },
         { "node": "Proyectos activos", "type": "main", "index": 0 },
         { "node": "Dia libre hoy", "type": "main", "index": 0 },
         { "node": "Recordatorios hoy y manana", "type": "main", "index": 0 },
@@ -365,6 +442,11 @@
     "Guardar preguntas nuevas": { "main": [[{ "node": "Elegir preguntas personales", "type": "main", "index": 0 }]] },
     "Recuerdos 24h": { "main": [[{ "node": "Juntar", "type": "main", "index": 0 }]] },
     "Eventos 24h": { "main": [[{ "node": "Juntar", "type": "main", "index": 1 }]] },
+    "Listar carpetas Levstamp": { "main": [[{ "node": "Preparar manifest URLs", "type": "main", "index": 0 }]] },
+    "Preparar manifest URLs": { "main": [[{ "node": "Leer manifest", "type": "main", "index": 0 }]] },
+    "Leer manifest": { "main": [[{ "node": "Preparar asset checks", "type": "main", "index": 0 }]] },
+    "Preparar asset checks": { "main": [[{ "node": "Comprobar asset", "type": "main", "index": 0 }]] },
+    "Comprobar asset": { "main": [[{ "node": "Estado videos Levstamp", "type": "main", "index": 0 }]] },
     "Estado videos Levstamp": { "main": [[{ "node": "Juntar", "type": "main", "index": 2 }]] },
     "Proyectos activos": { "main": [[{ "node": "Juntar", "type": "main", "index": 3 }]] },
     "Dia libre hoy": { "main": [[{ "node": "Juntar", "type": "main", "index": 4 }]] },
