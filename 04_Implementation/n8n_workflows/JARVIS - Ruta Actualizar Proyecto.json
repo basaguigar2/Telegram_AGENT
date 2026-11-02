@@ -20,7 +20,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const previo = $('When Executed by Another Workflow').first().json;\nconst m = previo.mensaje.toLowerCase();\nconst alias = {\n  'Levstamp': /levstamp|aptis|british council/,\n  'Tu Home Office': /tu home office|home office|afiliados amazon|amazon afiliados/,\n  'Wedding Planner Pro': /wedding planner|nuptial|boda|novios/,\n  'JARVIS': /\\bjarvis\\b/,\n  'Desarrollo Profesional': /\\bcurso\\b|formaci[oó]n|certificaci[oó]n|\\bestudiar\\b/\n};\nlet nombre_proyecto = '';\nfor (const [nombre, patron] of Object.entries(alias)) {\n  if (patron.test(m)) { nombre_proyecto = nombre; break; }\n}\nreturn [{ json: { usuario_id: previo.usuario_id, chat_id: previo.chat_id, mensaje: previo.mensaje, nombre_proyecto } }];"
+        "jsCode": "const previo = $('When Executed by Another Workflow').first().json;\nconst m = previo.mensaje.toLowerCase();\nconst alias = {\n  'Levstamp': /levstamp|aptis|british council/,\n  'Tu Home Office': /tu home office|home office|afiliados amazon|amazon afiliados/,\n  'Wedding Planner Pro': /wedding planner|nuptial|boda|novios/,\n  'JARVIS': /\\bjarvis\\b/,\n  'Desarrollo Profesional': /desarrollo profesional|\\bcurso\\b|formaci[oó]n|certificaci[oó]n|\\bestudiar\\b/\n};\nlet nombre_proyecto = '';\nfor (const [nombre, patron] of Object.entries(alias)) {\n  if (patron.test(m)) { nombre_proyecto = nombre; break; }\n}\nreturn [{ json: { usuario_id: previo.usuario_id, chat_id: previo.chat_id, mensaje: previo.mensaje, nombre_proyecto } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
