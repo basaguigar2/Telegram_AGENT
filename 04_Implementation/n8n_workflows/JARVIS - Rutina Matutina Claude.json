@@ -63,7 +63,13 @@
       "typeVersion": 2,
       "position": [448, -80],
       "id": "rmat1na0-0013-4000-8000-00000000000d",
-      "name": "Estado videos Levstamp"
+      "name": "Estado videos Levstamp",
+      "credentials": {
+        "oAuth2Api": {
+          "id": "placeholder-onedrive",
+          "name": "OneDrive Graph API"
+        }
+      }
     },
     {
       "parameters": {
